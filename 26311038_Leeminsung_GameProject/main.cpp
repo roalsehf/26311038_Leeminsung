@@ -1,10 +1,7 @@
 #include <glc2d.h>
 
-#include <algorithm>
-#include <cmath>
 #include <cstdio>
 
-// glc2d provides separate libraries for each architecture and configuration.
 #if defined(_DEBUG)
     #if defined(_M_X64)
         #pragma comment(lib, "glc2d_x64_debug.lib")
@@ -21,171 +18,276 @@
 
 namespace
 {
-constexpr int kScreenWidth = 960;
-constexpr int kScreenHeight = 540;
-constexpr float kPlayerSpeed = 280.0F;
-constexpr float kPlayerSize = 42.0F;
-constexpr float kTargetWidth = 120.0F;
-constexpr float kTargetHeight = 44.0F;
+constexpr int kScreenWidth = 1024;
+constexpr int kScreenHeight = 640;
+constexpr int kMenuCount = 3;
 
+enum class GameState
+{
+    MainMenu,
+    HowToPlay,
+    BattlePreview
+};
+
+GameState g_gameState = GameState::MainMenu;
+int g_selectedMenu = 0;
 int g_titleFont = -1;
+int g_headingFont = -1;
+int g_menuFont = -1;
 int g_bodyFont = -1;
-int g_playerFont = -1;
 
-float g_playerX = 100.0F;
-float g_playerY = 300.0F;
-float g_targetX = 700.0F;
-float g_targetY = 320.0F;
-int g_score = 0;
-long long g_previousTime = 0;
-bool g_wasTouchingTarget = false;
-
-bool IsKeyDown(const KEYCODE* keys, int key)
+bool IsKeyPressed(const KEYCODE* keys, int key)
 {
-    return keys != nullptr && keys[key] != EINPUT_NONE;
+    return keys != nullptr && keys[key] == EINPUT_DOWN;
 }
 
-void ResetGame()
+void RequestExit()
 {
-    g_playerX = 100.0F;
-    g_playerY = 300.0F;
-    g_targetX = 700.0F;
-    g_targetY = 320.0F;
-    g_score = 0;
-    g_wasTouchingTarget = false;
+    PostMessage(g2_GetHwnd(), WM_CLOSE, 0, 0);
 }
 
-void MoveTarget()
+void SelectMenuItem()
 {
-    // A deterministic position keeps this first-week prototype resource-free.
-    g_targetX = 120.0F + static_cast<float>((g_score * 173) % 690);
-    g_targetY = 190.0F + static_cast<float>((g_score * 97) % 260);
+    switch (g_selectedMenu)
+    {
+    case 0:
+        g_gameState = GameState::BattlePreview;
+        break;
+
+    case 1:
+        g_gameState = GameState::HowToPlay;
+        break;
+
+    case 2:
+        RequestExit();
+        break;
+
+    default:
+        break;
+    }
 }
 
-bool IsTouchingTarget()
+void UpdateMainMenu(const KEYCODE* keys)
 {
-    const float playerCenterX = g_playerX + kPlayerSize * 0.5F;
-    const float playerCenterY = g_playerY + kPlayerSize * 0.5F;
-    const float targetCenterX = g_targetX + kTargetWidth * 0.5F;
-    const float targetCenterY = g_targetY + kTargetHeight * 0.5F;
+    if (IsKeyPressed(keys, VK_UP) || IsKeyPressed(keys, 'W'))
+    {
+        --g_selectedMenu;
+        if (g_selectedMenu < 0)
+        {
+            g_selectedMenu = kMenuCount - 1;
+        }
+    }
 
-    return std::abs(playerCenterX - targetCenterX) < (kPlayerSize + kTargetWidth) * 0.5F
-        && std::abs(playerCenterY - targetCenterY) < (kPlayerSize + kTargetHeight) * 0.5F;
+    if (IsKeyPressed(keys, VK_DOWN) || IsKeyPressed(keys, 'S'))
+    {
+        ++g_selectedMenu;
+        if (g_selectedMenu >= kMenuCount)
+        {
+            g_selectedMenu = 0;
+        }
+    }
+
+    if (IsKeyPressed(keys, VK_RETURN))
+    {
+        SelectMenuItem();
+    }
+
+    if (IsKeyPressed(keys, VK_ESCAPE))
+    {
+        RequestExit();
+    }
 }
 
 int FrameMove()
 {
     const KEYCODE* keys = g2_GetKeyboard();
-    const long long currentTime = g2_TimeGetTime();
 
-    if (g_previousTime == 0)
+    if (g_gameState == GameState::MainMenu)
     {
-        g_previousTime = currentTime;
+        UpdateMainMenu(keys);
     }
-
-    const float deltaTime = std::clamp(
-        static_cast<float>(currentTime - g_previousTime) / 1000.0F,
-        0.0F,
-        0.05F);
-    g_previousTime = currentTime;
-
-    float moveX = 0.0F;
-    float moveY = 0.0F;
-
-    if (IsKeyDown(keys, VK_LEFT) || IsKeyDown(keys, 'A'))
+    else if (IsKeyPressed(keys, VK_RETURN) || IsKeyPressed(keys, VK_ESCAPE))
     {
-        moveX -= 1.0F;
-    }
-    if (IsKeyDown(keys, VK_RIGHT) || IsKeyDown(keys, 'D'))
-    {
-        moveX += 1.0F;
-    }
-    if (IsKeyDown(keys, VK_UP) || IsKeyDown(keys, 'W'))
-    {
-        moveY -= 1.0F;
-    }
-    if (IsKeyDown(keys, VK_DOWN) || IsKeyDown(keys, 'S'))
-    {
-        moveY += 1.0F;
-    }
-
-    if (moveX != 0.0F && moveY != 0.0F)
-    {
-        constexpr float kDiagonalScale = 0.70710678F;
-        moveX *= kDiagonalScale;
-        moveY *= kDiagonalScale;
-    }
-
-    g_playerX = std::clamp(
-        g_playerX + moveX * kPlayerSpeed * deltaTime,
-        20.0F,
-        static_cast<float>(kScreenWidth) - kPlayerSize - 20.0F);
-    g_playerY = std::clamp(
-        g_playerY + moveY * kPlayerSpeed * deltaTime,
-        160.0F,
-        static_cast<float>(kScreenHeight) - kPlayerSize - 20.0F);
-
-    const bool isTouchingTarget = IsTouchingTarget();
-    if (isTouchingTarget && !g_wasTouchingTarget)
-    {
-        ++g_score;
-        MoveTarget();
-    }
-    g_wasTouchingTarget = isTouchingTarget;
-
-    if (IsKeyDown(keys, 'R'))
-    {
-        ResetGame();
-    }
-
-    if (IsKeyDown(keys, VK_ESCAPE))
-    {
-        PostMessage(g2_GetHwnd(), WM_CLOSE, 0, 0);
+        g_gameState = GameState::MainMenu;
     }
 
     return 0;
+}
+
+void DrawMainMenu()
+{
+    g2_FontDrawText(
+        g_titleFont,
+        { 285, 45, 760, 105 },
+        0xFFD9B3FF,
+        "DUNGEON DECK");
+
+    g2_FontDrawText(
+        g_bodyFont,
+        { 350, 112, 760, 150 },
+        0xFFB8C5D6,
+        "TURN BASED CARD RPG");
+
+    const char* menuItems[kMenuCount] =
+    {
+        "GAME START",
+        "HOW TO PLAY",
+        "EXIT"
+    };
+
+    for (int index = 0; index < kMenuCount; ++index)
+    {
+        const int top = 220 + index * 72;
+        const DWORD color = index == g_selectedMenu
+            ? 0xFFFFD166
+            : 0xFFE6EDF3;
+
+        g2_FontDrawText(
+            g_menuFont,
+            { 405, top, 720, top + 48 },
+            color,
+            "%s",
+            menuItems[index]);
+    }
+
+    g2_FontDrawText(
+        g_bodyFont,
+        { 310, 510, 800, 548 },
+        0xFF8FB8DE,
+        "W, S or Arrow Keys: Move");
+
+    g2_FontDrawText(
+        g_bodyFont,
+        { 375, 552, 760, 590 },
+        0xFF8FB8DE,
+        "Enter: Select   Esc: Exit");
+}
+
+void DrawHowToPlay()
+{
+    g2_FontDrawText(
+        g_headingFont,
+        { 380, 40, 760, 90 },
+        0xFFD9B3FF,
+        "HOW TO PLAY");
+
+    g2_FontDrawText(
+        g_bodyFont,
+        { 115, 120, 920, 155 },
+        0xFFE6EDF3,
+        "Draw five cards at the beginning of each player turn.");
+    g2_FontDrawText(
+        g_bodyFont,
+        { 115, 168, 920, 203 },
+        0xFFE6EDF3,
+        "Use Energy to play Attack and Skill cards.");
+    g2_FontDrawText(
+        g_bodyFont,
+        { 115, 216, 920, 251 },
+        0xFFE6EDF3,
+        "Strike deals damage. Guard adds Block. Focus draws a card.");
+    g2_FontDrawText(
+        g_bodyFont,
+        { 115, 264, 920, 299 },
+        0xFFE6EDF3,
+        "End the turn to let the enemy perform its displayed action.");
+    g2_FontDrawText(
+        g_bodyFont,
+        { 115, 312, 920, 347 },
+        0xFFE6EDF3,
+        "Reach Stage 3 and defeat the Dungeon Warden to clear the game.");
+
+    g2_FontDrawText(
+        g_bodyFont,
+        { 115, 400, 920, 435 },
+        0xFF70E000,
+        "Starting HP: 50   Energy: 3   Hand: 5 cards");
+
+    g2_FontDrawText(
+        g_bodyFont,
+        { 310, 550, 820, 590 },
+        0xFF8FB8DE,
+        "Enter or Esc: Return to Main Menu");
+}
+
+void DrawBattlePreview()
+{
+    g2_FontDrawText(
+        g_headingFont,
+        { 390, 32, 760, 82 },
+        0xFFFFD166,
+        "BATTLE START");
+
+    g2_FontDrawText(
+        g_headingFont,
+        { 95, 120, 450, 165 },
+        0xFFFF7B7B,
+        "TRAINING GOBLIN");
+    g2_FontDrawText(
+        g_bodyFont,
+        { 100, 178, 430, 213 },
+        0xFFE6EDF3,
+        "HP: 32 / 32");
+    g2_FontDrawText(
+        g_bodyFont,
+        { 100, 220, 430, 255 },
+        0xFFE6EDF3,
+        "Next Action: Attack 7");
+
+    g2_FontDrawText(
+        g_headingFont,
+        { 650, 120, 900, 165 },
+        0xFF48CAE4,
+        "PLAYER");
+    g2_FontDrawText(
+        g_bodyFont,
+        { 650, 178, 950, 213 },
+        0xFFE6EDF3,
+        "HP: 50 / 50");
+    g2_FontDrawText(
+        g_bodyFont,
+        { 650, 220, 950, 255 },
+        0xFFE6EDF3,
+        "Energy: 3 / 3");
+
+    g2_FontDrawText(
+        g_bodyFont,
+        { 285, 330, 850, 365 },
+        0xFFD9B3FF,
+        "Week 1 Battle Screen Prototype");
+    g2_FontDrawText(
+        g_bodyFont,
+        { 235, 380, 900, 415 },
+        0xFFB8C5D6,
+        "Card and turn systems will be connected in later logs.");
+
+    g2_FontDrawText(
+        g_bodyFont,
+        { 310, 550, 820, 590 },
+        0xFF8FB8DE,
+        "Enter or Esc: Return to Main Menu");
 }
 
 int Render()
 {
-    g2_FontDrawText(
-        g_titleFont,
-        { 32, 24, kScreenWidth - 32, 80 },
-        0xFFFFD166,
-        "CATCH THE TARGET");
+    switch (g_gameState)
+    {
+    case GameState::MainMenu:
+        DrawMainMenu();
+        break;
 
-    g2_FontDrawText(
-        g_bodyFont,
-        { 34, 84, kScreenWidth - 34, 120 },
-        0xFFD7E3FC,
-        "Move P with Arrow Keys or WASD. R resets. ESC exits.");
+    case GameState::HowToPlay:
+        DrawHowToPlay();
+        break;
 
-    g2_FontDrawText(
-        g_bodyFont,
-        { 34, 124, 300, 158 },
-        0xFF70E000,
-        "SCORE: %d",
-        g_score);
-
-    const RECT targetArea = {
-        static_cast<LONG>(g_targetX),
-        static_cast<LONG>(g_targetY),
-        static_cast<LONG>(g_targetX + kTargetWidth),
-        static_cast<LONG>(g_targetY + kTargetHeight)
-    };
-    g2_FontDrawText(g_bodyFont, targetArea, 0xFFFF5D8F, "TARGET");
-
-    const RECT playerArea = {
-        static_cast<LONG>(g_playerX),
-        static_cast<LONG>(g_playerY),
-        static_cast<LONG>(g_playerX + kPlayerSize),
-        static_cast<LONG>(g_playerY + kPlayerSize)
-    };
-    g2_FontDrawText(g_playerFont, playerArea, 0xFF48CAE4, "P");
+    case GameState::BattlePreview:
+        DrawBattlePreview();
+        break;
+    }
 
     return 0;
 }
-} // namespace
+}
 
 int main()
 {
@@ -196,19 +298,20 @@ int main()
         return 1;
     }
 
-    std::printf("glc2d SDK initialized.\n");
-    g2_SetClearColor(0xFF10243E);
+    g2_SetClearColor(0xFF101827);
+    g2_SetStateShow(0);
+    g2_SetCursorShow(0);
     g2_SetFrameMove(FrameMove);
     g2_SetRender(Render);
 
-    // true selects windowed mode in glc2d.
     const int createResult = g2_CreateWin(
-        120,
-        80,
+        100,
+        70,
         kScreenWidth,
         kScreenHeight,
-        "Catch the Target - Week 1 Prototype",
+        "DUNGEON DECK - glc2d Card RPG",
         true);
+
     if (createResult != 0)
     {
         std::fprintf(stderr, "glc2d window creation failed: %d\n", createResult);
@@ -216,18 +319,19 @@ int main()
         return 1;
     }
 
-    g_titleFont = g2_FontCreate("Arial", 38, 0);
-    g_bodyFont = g2_FontCreate("Consolas", 21, 0);
-    g_playerFont = g2_FontCreate("Arial", 38, 0);
-    if (g_titleFont < 0 || g_bodyFont < 0 || g_playerFont < 0)
+    g_titleFont = g2_FontCreate("Arial", 40, 0);
+    g_headingFont = g2_FontCreate("Arial", 30, 0);
+    g_menuFont = g2_FontCreate("Arial", 27, 0);
+    g_bodyFont = g2_FontCreate("Consolas", 20, 0);
+
+    if (g_titleFont < 0 || g_headingFont < 0 || g_menuFont < 0 || g_bodyFont < 0)
     {
         std::fprintf(stderr, "glc2d font creation failed.\n");
         g2_DestroyWin();
         return 1;
     }
-    g_previousTime = g2_TimeGetTime();
 
-    std::printf("Catch the Target started. Close the game window or press ESC to exit.\n");
+    std::printf("DUNGEON DECK started. Close the game window or press Esc to exit.\n");
     const int runResult = g2_Run();
     g2_DestroyWin();
 

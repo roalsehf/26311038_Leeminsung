@@ -7,7 +7,8 @@
 - 저장소와 프로젝트에 사용할 이름을 26311038_Leeminsung_GameProject로 통일했습니다.
 - Visual Studio 2022 C++ 솔루션과 프로젝트 파일을 준비했습니다.
 - glc2d와 Microsoft.DXSDK.D3DX NuGet 복원 설정을 준비했습니다.
-- glc2d를 사용하는 초기 게임 화면과 게임 코드를 작성했습니다.
+- glc2d를 사용하는 DUNGEON DECK 메인 메뉴와 전투 미리보기를 작성했습니다.
+- DUNGEON DECK 게임 기획서를 작성했습니다.
 - .gitignore와 .gitattributes를 준비했습니다.
 - README에 학번, 이름, 과목명, 과제명, 저장소 주소를 작성했습니다.
 - Debug와 Release, x86과 x64 구성을 빌드했습니다.
@@ -32,7 +33,8 @@
 4. 솔루션 다시 빌드를 실행합니다.
 5. 오류가 0개인지 확인합니다.
 6. Ctrl+F5로 게임을 실행합니다.
-7. 방향키 또는 WASD 이동, 목표 도달 시 점수 증가, R 초기화, Esc 종료를 확인합니다.
+7. W, S 또는 방향키 메뉴 이동, Enter 선택, Esc 이전 화면 또는 종료를 확인합니다.
+8. GAME START, HOW TO PLAY, EXIT 메뉴가 동작하는지 확인합니다.
 
 사용 패키지는 다음과 같습니다.
 
@@ -96,6 +98,7 @@ ZIP 내부에 다음 파일이 있는지 확인합니다.
 - .gitignore
 - .gitattributes
 - README.md
+- docs/GAME_DESIGN.md
 - docs/WEEK1_SUBMISSION_GUIDE.md
 
 packages, .vs, bin, obj, x64, Debug, Release, 사용자별 .user 파일은 ZIP에 없어야 합니다.
@@ -109,6 +112,7 @@ packages, .vs, bin, obj, x64, Debug, Release, 사용자별 .user 파일은 ZIP�
 - [ ] glc2d와 DXSDK 패키지가 복원된다.
 - [ ] 프로젝트가 빌드되고 실행된다.
 - [ ] 초기 게임 화면과 게임 소스 코드가 있다.
+- [ ] DUNGEON DECK 게임 기획서가 있다.
 - [ ] Tag 이름이 26311038_Leeminsung_GameProject_w01이다.
 - [ ] main과 Tag를 원격 저장소에 Push했다.
 - [ ] Tag 날짜를 캡처했다.
